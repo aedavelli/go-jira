@@ -1,6 +1,7 @@
 package jira
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 )
@@ -51,46 +52,51 @@ type GroupMember struct {
 
 // GroupSearchOptions specifies the optional parameters for the Get Group methods
 type GroupSearchOptions struct {
-	StartAt              int
-	MaxResults           int
+	StartAt              int64
+	MaxResults           int32
 	IncludeInactiveUsers bool
+}
+
+type GroupLabel struct {
+	Text  string `json:"text"`
+	Title string `json:"title"`
+	Type  string `json:"type"`
+}
+type GroupDetails struct {
+	Name   string       `json:"name"`
+	Html   string       `json:"html"`
+	Labels []GroupLabel `json:"labels"`
+}
+type GroupList struct {
+	Header string         `json:"header"`
+	Total  int32          `json:"total"`
+	Groups []GroupDetails `json:"groups"`
 }
 
 // Get returns a paginated list of users who are members of the specified group and its subgroups.
 // Users in the page are ordered by user names.
 // User of this resource is required to have sysadmin or admin permissions.
 //
-// JIRA API docs: https://docs.atlassian.com/jira/REST/server/#api/2/group-getUsersFromGroup
+// JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-group-member-get
 //
 // WARNING: This API only returns the first page of group members
 func (s *GroupService) Get(name string) ([]GroupMember, *Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/group/member?groupname=%s", url.QueryEscape(name))
-	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	group := new(groupMembersResult)
-	resp, err := s.client.Do(req, group)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return group.Members, resp, nil
+	return s.GetWithOptions(name, nil)
 }
 
 // GetWithOptions returns a paginated list of members of the specified group and its subgroups.
 // Users in the page are ordered by user names.
 // User of this resource is required to have sysadmin or admin permissions.
 //
-// JIRA API docs: https://docs.atlassian.com/jira/REST/server/#api/2/group-getUsersFromGroup
+// JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-group-member-get
 func (s *GroupService) GetWithOptions(name string, options *GroupSearchOptions) ([]GroupMember, *Response, error) {
 	var apiEndpoint string
 	if options == nil {
-		apiEndpoint = fmt.Sprintf("/rest/api/2/group/member?groupname=%s", url.QueryEscape(name))
+		apiEndpoint = fmt.Sprintf("%s/group/member?groupname=%s", restAPIBase, url.QueryEscape(name))
 	} else {
 		apiEndpoint = fmt.Sprintf(
-			"/rest/api/2/group/member?groupname=%s&startAt=%d&maxResults=%d&includeInactiveUsers=%t",
+			"%s/group/member?groupname=%s&startAt=%d&maxResults=%d&includeInactiveUsers=%t",
+			restAPIBase,
 			url.QueryEscape(name),
 			options.StartAt,
 			options.MaxResults,
@@ -112,16 +118,31 @@ func (s *GroupService) GetWithOptions(name string, options *GroupSearchOptions) 
 
 // Add adds user to group
 //
-// JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/group-addUserToGroup
-func (s *GroupService) Add(groupname string, username string) (*Group, *Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/group/user?groupname=%s", groupname)
-	var user struct {
-		Name string `json:"name"`
+// JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-group-user-post
+func (s *GroupService) Add(groupname string, userParams ...string) (*Group, *Response, error) {
+	if len(userParams) != 1 && len(userParams) != 2 {
+		// First string is username and second string is accountId
+		return nil, nil, errors.New("Invalid User add parameters")
 	}
-	user.Name = username
+
+	apiEndpoint := fmt.Sprintf("%s/group/user?groupname=%s", restAPIBase, groupname)
+	var user struct {
+		Name      string `json:"name"`
+		AccountId string `json:"accountId"`
+	}
+
+	user.Name = userParams[0]
+	if len(userParams) == 2 {
+		user.AccountId = userParams[1]
+	}
+
 	req, err := s.client.NewRequest("POST", apiEndpoint, &user)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(userParams) == 2 {
+		req.Header.Add("force-account-id", "true")
 	}
 
 	responseGroup := new(Group)
@@ -151,4 +172,21 @@ func (s *GroupService) Remove(groupname string, username string) (*Response, err
 	}
 
 	return resp, nil
+}
+
+func (s *GroupService) GetList() (*GroupList, *Response, error) {
+	apiEndPoint := fmt.Sprintf("%s/groups/picker?maxResults=200", restAPIBase)
+	req, err := s.client.NewRequest("GET", apiEndPoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	gl := new(GroupList)
+	resp, err := s.client.Do(req, gl)
+	if err != nil {
+		jerr := NewJiraError(resp, err)
+		return nil, resp, jerr
+	}
+
+	return gl, resp, nil
 }

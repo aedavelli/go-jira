@@ -46,7 +46,7 @@ type userSearchF func(userSearch) userSearch
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-getUser
 func (s *UserService) Get(username string) (*User, *Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/user?username=%s", username)
+	apiEndpoint := fmt.Sprintf("%s/user?username=%s", restAPIBase, username)
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
 		return nil, nil, err

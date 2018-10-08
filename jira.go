@@ -15,6 +15,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	restAPIBase = "/rest/api/3"
+)
+
 // A Client manages communication with the JIRA API.
 type Client struct {
 	// HTTP client used to communicate with the API.
