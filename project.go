@@ -8,7 +8,7 @@ import (
 
 // ProjectService handles projects for the JIRA instance / API.
 //
-// JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project
+// JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-group-Project
 type ProjectService struct {
 	client *Client
 }
@@ -19,6 +19,8 @@ type ProjectList []struct {
 	Self            string          `json:"self" structs:"self"`
 	ID              string          `json:"id" structs:"id"`
 	Key             string          `json:"key" structs:"key"`
+	Description     string          `json:"description " structs:"description "`
+	Lead            User            `json:"lead" structs:"lead"`
 	Name            string          `json:"name" structs:"name"`
 	AvatarUrls      AvatarUrls      `json:"avatarUrls" structs:"avatarUrls"`
 	ProjectTypeKey  string          `json:"projectTypeKey" structs:"projectTypeKey"`
@@ -81,19 +83,26 @@ type PermissionScheme struct {
 	Description string `json:"description" structs:"description,omitempty"`
 }
 
+// Get All Projects Query Parameters
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-project-get
+type GetAllProjectsQueryParams struct {
+	Expand string `url:"expand,omitempty"`
+	Recent int32  `url:"recent.omitempty"`
+}
+
 // GetList gets all projects form JIRA
 //
-// JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getAllProjects
+// JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-project-get
 func (s *ProjectService) GetList() (*ProjectList, *Response, error) {
-	return s.ListWithOptions(&GetQueryOptions{})
+	return s.ListWithOptions(&GetAllProjectsQueryParams{})
 }
 
 // ListWithOptions gets all projects form JIRA with optional query params, like &GetQueryOptions{Expand: "issueTypes"} to get
 // a list of all projects and their supported issuetypes
 //
-// JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getAllProjects
-func (s *ProjectService) ListWithOptions(options *GetQueryOptions) (*ProjectList, *Response, error) {
-	apiEndpoint := "rest/api/2/project"
+// JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-project-get
+func (s *ProjectService) ListWithOptions(options *GetAllProjectsQueryParams) (*ProjectList, *Response, error) {
+	const apiEndpoint = restAPIBase + "/project"
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
 		return nil, nil, err

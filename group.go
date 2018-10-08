@@ -128,7 +128,7 @@ func (s *GroupService) Add(groupname string, userParams ...string) (*Group, *Res
 	apiEndpoint := fmt.Sprintf("%s/group/user?groupname=%s", restAPIBase, groupname)
 	var user struct {
 		Name      string `json:"name"`
-		AccountId string `json:"accountId"`
+		AccountId string `json:"accountId,omitempty"`
 	}
 
 	user.Name = userParams[0]
