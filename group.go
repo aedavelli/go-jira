@@ -125,7 +125,7 @@ func (s *GroupService) Add(groupname string, userParams ...string) (*Group, *Res
 		return nil, nil, errors.New("Invalid User add parameters")
 	}
 
-	apiEndpoint := fmt.Sprintf("%s/group/user?groupname=%s", restAPIBase, groupname)
+	apiEndpoint := fmt.Sprintf("%s/group/user?groupname=%s", restAPIBase, url.QueryEscape(groupname))
 	var user struct {
 		Name      string `json:"name"`
 		AccountId string `json:"accountId,omitempty"`
@@ -159,7 +159,8 @@ func (s *GroupService) Add(groupname string, userParams ...string) (*Group, *Res
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/group-removeUserFromGroup
 func (s *GroupService) Remove(groupname string, username string) (*Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/group/user?groupname=%s&username=%s", groupname, username)
+	apiEndpoint := fmt.Sprintf("/rest/api/2/group/user?groupname=%s&username=%s",
+		url.QueryEscape(groupname), url.QueryEscape(username))
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
 	if err != nil {
 		return nil, err

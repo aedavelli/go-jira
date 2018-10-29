@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 )
 
 // UserService handles users for the JIRA instance / API.
@@ -46,7 +47,7 @@ type userSearchF func(userSearch) userSearch
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-getUser
 func (s *UserService) Get(username string) (*User, *Response, error) {
-	apiEndpoint := fmt.Sprintf("%s/user?username=%s", restAPIBase, username)
+	apiEndpoint := fmt.Sprintf("%s/user?username=%s", restAPIBase, url.QueryEscape(username))
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
 		return nil, nil, err
@@ -95,7 +96,7 @@ func (s *UserService) Create(user *User) (*User, *Response, error) {
 //
 // JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/#api-api-2-user-delete
 func (s *UserService) Delete(username string) (*Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/user?username=%s", username)
+	apiEndpoint := fmt.Sprintf("/rest/api/2/user?username=%s", url.QueryEscape(username))
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
 	if err != nil {
 		return nil, err
@@ -112,7 +113,7 @@ func (s *UserService) Delete(username string) (*Response, error) {
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-getUserGroups
 func (s *UserService) GetGroups(username string) (*[]UserGroup, *Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/user/groups?username=%s", username)
+	apiEndpoint := fmt.Sprintf("/rest/api/2/user/groups?username=%s", url.QueryEscape(username))
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
 		return nil, nil, err
@@ -175,17 +176,28 @@ func WithInactive(inactive bool) userSearchF {
 	}
 }
 
+// WithQuery sets the query string
+func WithQuery(query string) userSearchF {
+	return func(s userSearch) userSearch {
+		s = append(s, userSearchParam{name: "query", value: fmt.Sprintf("%s", query)})
+		return s
+	}
+}
+
+// WithUsername sets the username
+func WithUsername(username string) userSearchF {
+	return func(s userSearch) userSearch {
+		s = append(s, userSearchParam{name: "username", value: fmt.Sprintf("%s", url.QueryEscape(username))})
+		return s
+	}
+}
+
 // Find searches for user info from JIRA:
 // It can find users by email, username or name
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-findUsers
-func (s *UserService) Find(property string, tweaks ...userSearchF) ([]User, *Response, error) {
-	search := []userSearchParam{
-		{
-			name:  "username",
-			value: property,
-		},
-	}
+func (s *UserService) Find(tweaks ...userSearchF) ([]User, *Response, error) {
+	search := []userSearchParam{}
 	for _, f := range tweaks {
 		search = f(search)
 	}
