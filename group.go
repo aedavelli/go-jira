@@ -176,7 +176,14 @@ func (s *GroupService) Remove(groupname string, username string) (*Response, err
 }
 
 func (s *GroupService) GetList() (*GroupList, *Response, error) {
-	apiEndPoint := fmt.Sprintf("%s/groups/picker?maxResults=200", restAPIBase)
+	return s.GetListWithOptions(nil)
+}
+
+func (s *GroupService) GetListWithOptions(v url.Values) (*GroupList, *Response, error) {
+	apiEndPoint := fmt.Sprintf("%s/groups/picker", restAPIBase)
+	if len(v) > 0 {
+		apiEndPoint = fmt.Sprintf("%s?%s", apiEndPoint, v.Encode())
+	}
 	req, err := s.client.NewRequest("GET", apiEndPoint, nil)
 	if err != nil {
 		return nil, nil, err
