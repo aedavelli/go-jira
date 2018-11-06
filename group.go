@@ -119,7 +119,7 @@ func (s *GroupService) GetWithOptions(name string, options *GroupSearchOptions) 
 // Add adds user to group
 //
 // JIRA API docs: https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-group-user-post
-func (s *GroupService) Add(groupname string, userParams ...string) (*Group, *Response, error) {
+func (s *GroupService) AddUser(groupname string, userParams ...string) (*Group, *Response, error) {
 	if len(userParams) != 1 && len(userParams) != 2 {
 		// First string is username and second string is accountId
 		return nil, nil, errors.New("Invalid User add parameters")
@@ -158,8 +158,8 @@ func (s *GroupService) Add(groupname string, userParams ...string) (*Group, *Res
 // Remove removes user from group
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/group-removeUserFromGroup
-func (s *GroupService) Remove(groupname string, username string) (*Response, error) {
-	apiEndpoint := fmt.Sprintf("/rest/api/2/group/user?groupname=%s&username=%s",
+func (s *GroupService) RemoveUser(groupname string, username string) (*Response, error) {
+	apiEndpoint := fmt.Sprintf("%s/group/user?groupname=%s&username=%s", restAPIBase,
 		url.QueryEscape(groupname), url.QueryEscape(username))
 	req, err := s.client.NewRequest("DELETE", apiEndpoint, nil)
 	if err != nil {
@@ -175,10 +175,16 @@ func (s *GroupService) Remove(groupname string, username string) (*Response, err
 	return resp, nil
 }
 
+// Get the first page of groups list
+//
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-groups-picker-get
 func (s *GroupService) GetList() (*GroupList, *Response, error) {
 	return s.GetListWithOptions(nil)
 }
 
+// Get the groups list with query parameters
+//
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-groups-picker-get
 func (s *GroupService) GetListWithOptions(v url.Values) (*GroupList, *Response, error) {
 	apiEndPoint := fmt.Sprintf("%s/groups/picker", restAPIBase)
 	if len(v) > 0 {
@@ -197,4 +203,50 @@ func (s *GroupService) GetListWithOptions(v url.Values) (*GroupList, *Response, 
 	}
 
 	return gl, resp, nil
+}
+
+// Creates a group.
+//
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-group-post
+func (s *GroupService) Create(g *GroupDetails) (*GroupDetails, *Response, error) {
+	apiEndPoint := restAPIBase + "/group"
+
+	req, err := s.client.NewRequest("POST", apiEndPoint, g)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	gn := new(GroupDetails)
+	resp, err := s.client.Do(req, gn)
+	if err != nil {
+		jerr := NewJiraError(resp, err)
+		return nil, resp, jerr
+	}
+
+	return gn, resp, nil
+}
+
+// Deletes a group.
+//
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-group-delete
+func (s *GroupService) Remove(g string) (*Response, error) {
+
+	if g == "" {
+		return nil, errors.New("Group Name should be non empty string")
+	}
+
+	apiEndPoint := restAPIBase + "/group"
+
+	req, err := s.client.NewRequest("DELETE ", apiEndPoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(req, nil)
+	if err != nil {
+		jerr := NewJiraError(resp, err)
+		return resp, jerr
+	}
+
+	return resp, nil
 }
