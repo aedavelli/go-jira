@@ -24,7 +24,9 @@ type User struct {
 	AvatarUrls      AvatarUrls `json:"avatarUrls,omitempty" structs:"avatarUrls,omitempty"`
 	DisplayName     string     `json:"displayName,omitempty" structs:"displayName,omitempty"`
 	Active          bool       `json:"active,omitempty" structs:"active,omitempty"`
+	Notification    bool       `json:"notification ,omitempty" structs:"notification ,omitempty"`
 	TimeZone        string     `json:"timeZone,omitempty" structs:"timeZone,omitempty"`
+	Groups          UserGroups `json:"groups,omitempty" structs:"groups,omitempty"`
 	ApplicationKeys []string   `json:"applicationKeys,omitempty" structs:"applicationKeys,omitempty"`
 }
 
@@ -32,6 +34,11 @@ type User struct {
 type UserGroup struct {
 	Self string `json:"self,omitempty" structs:"self,omitempty"`
 	Name string `json:"name,omitempty" structs:"name,omitempty"`
+}
+
+type UserGroups struct {
+	Size  int         `json:"size,omitempty" structs:"size,omitempty"`
+	Items []UserGroup `json:"items,omitempty" structs:"items,omitempty"`
 }
 
 type userSearchParam struct {
@@ -47,25 +54,16 @@ type userSearchF func(userSearch) userSearch
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-getUser
 func (s *UserService) Get(username string) (*User, *Response, error) {
-	apiEndpoint := fmt.Sprintf("%s/user?username=%s", restAPIBase, url.QueryEscape(username))
-	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	user := new(User)
-	resp, err := s.client.Do(req, user)
-	if err != nil {
-		return nil, resp, NewJiraError(resp, err)
-	}
-	return user, resp, nil
+	qp := url.Values{}
+	qp["username"] = []string{username}
+	return s.GetWithQueryParams(qp)
 }
 
 // Create creates an user in JIRA.
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/cloud/#api/2/user-createUser
 func (s *UserService) Create(user *User) (*User, *Response, error) {
-	apiEndpoint := "/rest/api/2/user"
+	const apiEndpoint = restAPIBase + "/user"
 	req, err := s.client.NewRequest("POST", apiEndpoint, user)
 	if err != nil {
 		return nil, nil, err
@@ -219,4 +217,47 @@ func (s *UserService) Find(tweaks ...userSearchF) ([]User, *Response, error) {
 		return nil, resp, NewJiraError(resp, err)
 	}
 	return users, resp, nil
+}
+
+// Returns a list of users that match the search string and property.
+//
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-user-search-get
+func (s *UserService) FindWithQueryParams(qp url.Values) ([]User, *Response, error) {
+	apiEndpoint := restAPIBase + "/user/search"
+	if len(qp) > 0 {
+		apiEndpoint += "?" + qp.Encode()
+	}
+	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	users := []User{}
+	resp, err := s.client.Do(req, &users)
+	if err != nil {
+		return nil, resp, NewJiraError(resp, err)
+	}
+	return users, resp, nil
+}
+
+// Returns a user.
+//
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/#api-api-3-user-get
+func (s *UserService) GetWithQueryParams(qp url.Values) (*User, *Response, error) {
+	apiEndpoint := restAPIBase + "/user"
+	if len(qp) > 0 {
+		apiEndpoint += "?" + qp.Encode()
+	}
+
+	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	user := new(User)
+	resp, err := s.client.Do(req, user)
+	if err != nil {
+		return nil, resp, NewJiraError(resp, err)
+	}
+	return user, resp, nil
 }
